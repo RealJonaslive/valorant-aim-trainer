@@ -1,0 +1,15 @@
+# persönliche Daten - nie hochladen
+config.json
+sessions/
+fehler.log
+
+# Build-Ergebnisse (die Setup.exe kommt als Release-Datei auf GitHub, nicht ins Repo)
+build/
+dist/
+release/
+*.spec
+__pycache__/
+*.pyc
+
+# großes Original-Bild des Icons
+assets/icon_source.jpg
