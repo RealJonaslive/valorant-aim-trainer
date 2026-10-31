@@ -1,28 +1,30 @@
 <#
-  Neue Version veröffentlichen - alles in einem Schritt:
+  Neue Version veröffentlichen:
 
-      .\release.ps1 1.0.1 "Neuer Modus X; Fehler Y behoben"
+      .\release.ps1 1.0.2 "Was ist neu"
 
   1. Versionsnummer in aimtrainer/version.py setzen
   2. Tests ausführen (bei Fehlern wird abgebrochen)
-  3. .exe bauen (Nuitka, siehe build_exe.ps1) und Setup bauen (Inno Setup)
-  4. Code committen, Tag v<Version> setzen, zu GitHub hochladen
-  5. GitHub-Release mit der Setup.exe anlegen
-  -> Beim nächsten Start bekommen alle Freunde das Update (Pflicht-Update).
+  3. Code committen, Tag v<Version> (mit den Notizen) setzen und zu GitHub hochladen
+  4. GitHub Actions (.github/workflows/build.yml) baut daraus nachprüfbar .exe + Setup
+     und legt das Release an -> alle Freunde bekommen beim nächsten Start das Update.
+     Fortschritt: https://github.com/RealJonaslive/valorant-aim-trainer/actions
+
+  Notfall ohne GitHub Actions (lokal bauen und hochladen):
+      .\release.ps1 1.0.2 "Was ist neu" -Local
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Version,
-    [string]$Notes = ""
+    [string]$Notes = "",
+    [switch]$Local
 )
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Version muss so aussehen: 1.2.3" }
+if (-not $Notes) { $Notes = "Version $Version" }
 $gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
 if (-not $gh) { $gh = "C:\Program Files\GitHub CLI\gh.exe" }
-$iscc = Get-ChildItem "$env:LOCALAPPDATA\Programs\Inno Setup*\ISCC.exe", "C:\Program Files*\Inno Setup*\ISCC.exe" `
-        -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-if (-not $iscc) { throw "Inno Setup (ISCC.exe) nicht gefunden." }
 
 function Check($what) { if ($LASTEXITCODE -ne 0) { throw "$what fehlgeschlagen (Exit $LASTEXITCODE)." } }
 
@@ -34,20 +36,27 @@ $vf = "aimtrainer\version.py"
 Write-Host "== Tests ==" -ForegroundColor Cyan
 python tests\test_aimtrainer.py | Out-Null; Check "Tests"
 
-Write-Host "== .exe bauen (Nuitka) ==" -ForegroundColor Cyan
-& "$PSScriptRoot\build_exe.ps1" $Version
-
-Write-Host "== Setup bauen ==" -ForegroundColor Cyan
-& $iscc /Q "/DAppVersion=$Version" installer.iss; Check "Inno Setup"
-$setup = "release\ValorantAimTrainer-Setup-$Version.exe"
+if ($Local) {
+    $iscc = Get-ChildItem "$env:LOCALAPPDATA\Programs\Inno Setup*\ISCC.exe", "C:\Program Files*\Inno Setup*\ISCC.exe" `
+            -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+    if (-not $iscc) { throw "Inno Setup (ISCC.exe) nicht gefunden." }
+    Write-Host "== .exe bauen (Nuitka) ==" -ForegroundColor Cyan
+    & "$PSScriptRoot\build_exe.ps1" $Version
+    Write-Host "== Setup bauen ==" -ForegroundColor Cyan
+    & $iscc /Q "/DAppVersion=$Version" installer.iss; Check "Inno Setup"
+}
 
 Write-Host "== Zu GitHub hochladen ==" -ForegroundColor Cyan
 git add -A
 if (git status --porcelain) { git commit -m "Version $Version" | Out-Null; Check "git commit" }
-git tag "v$Version"; Check "git tag"
-git push origin HEAD --tags; Check "git push"
-if ($Notes) { & $gh release create "v$Version" $setup --title "Version $Version" --notes $Notes }
-else { & $gh release create "v$Version" $setup --title "Version $Version" --generate-notes }
-Check "GitHub-Release"
+git tag -a "v$Version" -m $Notes; Check "git tag"
+git push origin HEAD --follow-tags; Check "git push"
 
-Write-Host "Fertig: Version $Version ist veröffentlicht." -ForegroundColor Green
+if ($Local) {
+    & $gh release create "v$Version" "release\ValorantAimTrainer-Setup-$Version.exe" --title "Version $Version" --notes $Notes
+    Check "GitHub-Release"
+    Write-Host "Fertig: Version $Version ist veröffentlicht." -ForegroundColor Green
+} else {
+    Write-Host "Hochgeladen. GitHub baut jetzt das Setup und veröffentlicht Version $Version (ca. 10 Minuten):" -ForegroundColor Green
+    Write-Host "https://github.com/RealJonaslive/valorant-aim-trainer/actions"
+}

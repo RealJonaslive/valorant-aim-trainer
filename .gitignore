@@ -11,5 +11,8 @@ release/
 __pycache__/
 *.pyc
 
+# persönlicher Antragsentwurf
+SIGNPATH_ANTRAG.md
+
 # großes Original-Bild des Icons
 assets/icon_source.jpg

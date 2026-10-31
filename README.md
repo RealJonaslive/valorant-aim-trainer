@@ -17,14 +17,49 @@ Deine Einstellungen und Runden bleiben dabei erhalten (gespeichert in `%APPDATA%
 
 Deinstallieren: Windows-Einstellungen → Apps → „Valorant Aim Trainer“.
 
+## About (English)
+
+Valorant Aim Trainer is a free, open-source aim trainer for Windows. It reproduces Valorant's exact
+mouse-to-camera math (0.07° per count × sensitivity, 103° horizontal FOV, raw mouse input) and offers
+four training modes (Flick, Multi-Bot, Tracking, Peek with movement and cover). Every shot and mouse
+movement is analysed (reaction time, overshoot/undershoot, click timing) to recommend a sensitivity,
+per round and across all rounds. Crosshairs can be imported/exported as Valorant profile codes.
+Installer with uninstaller; updates are delivered via GitHub Releases.
+
+## Privacy
+
+The program stores settings and training results only locally in `%APPDATA%\ValorantAimTrainer`.
+It does not collect or send any personal data. The only network access is the update check at start:
+it requests the latest release information from the GitHub API
+(`api.github.com/repos/RealJonaslive/valorant-aim-trainer/releases/latest`) and, if a newer version
+exists and the user clicks "Jetzt aktualisieren", downloads the installer from GitHub. GitHub's
+[privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) applies to these requests.
+
+## Code signing policy
+
+Code signing via the [SignPath Foundation](https://signpath.org) is being prepared (not active yet).
+All release binaries are built from this repository by GitHub Actions
+([build.yml](.github/workflows/build.yml)); nothing is built or uploaded by hand.
+
+- Committers and reviewers: [RealJonaslive](https://github.com/RealJonaslive)
+- Approvers: [RealJonaslive](https://github.com/RealJonaslive)
+- Privacy policy: see [Privacy](#privacy) above.
+
+## License
+
+[MIT](LICENSE). Bundled third-party components: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+"Valorant" is a trademark of Riot Games, Inc. This fan project is not affiliated with or endorsed by Riot Games.
+
 ---
 
 ## Für Entwickler
 
-Neue Version veröffentlichen (baut .exe + Setup und lädt alles zu GitHub hoch):
+Neue Version veröffentlichen: Version hochzählen, testen, Code + Tag hochladen. GitHub Actions baut
+daraus .exe + Setup und legt das Release an (Fortschritt unter „Actions“ auf GitHub):
 
 ```
-.\release.ps1 1.0.1 "Was ist neu"
+.\release.ps1 1.0.2 "Was ist neu"
+.\release.ps1 1.0.2 "Was ist neu" -Local    # Notfall: lokal bauen und hochladen
 ```
 
 Start aus dem Quellcode per Doppelklick auf **„Valorant Aim Trainer“** auf dem Desktop (startet `main.py` mit

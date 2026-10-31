@@ -1,0 +1,82 @@
+# Baut das Setup nachprüfbar aus dem öffentlichen Quellcode (Voraussetzung für SignPath).
+#
+# - Push eines Tags "v1.2.3" (macht release.ps1): testen, bauen, GitHub-Release mit Setup anlegen.
+# - "Run workflow" von Hand (workflow_dispatch): nur testen und bauen, Setup als Artefakt
+#   herunterladbar, nichts wird veröffentlicht.
+#
+# Sobald SignPath den Antrag genehmigt hat, kommt zwischen "Setup bauen" und
+# "GitHub-Release" der Signierschritt (signpath/github-action-submit-signing-request).
+name: Build & Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Abhängigkeiten installieren
+        run: python -m pip install -r requirements.txt nuitka ordered-set zstandard
+
+      - name: Version bestimmen
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Select-String aimtrainer/version.py -Pattern '__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if ($env:GITHUB_REF_TYPE -eq "tag" -and "v$v" -ne $env:GITHUB_REF_NAME) {
+            throw "Tag $env:GITHUB_REF_NAME passt nicht zu version.py ($v)"
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Tests
+        run: python tests/test_aimtrainer.py
+
+      - name: Programm bauen (Nuitka)
+        shell: pwsh
+        run: ./build_exe.ps1 ${{ steps.ver.outputs.version }}
+
+      - name: Selbsttest der gebauten .exe
+        shell: pwsh
+        run: |
+          Start-Process "dist\Valorant Aim Trainer\Valorant Aim Trainer.exe" -ArgumentList "--selftest" -Wait
+          $st = Join-Path $env:APPDATA "ValorantAimTrainer\selftest.txt"
+          Get-Content $st
+          if (-not (Select-String -Path $st -Pattern "GESAMT: OK" -Quiet)) { throw "Selbsttest fehlgeschlagen" }
+
+      - name: Inno Setup bereitstellen
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+
+      - name: Setup bauen
+        shell: pwsh
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /Q "/DAppVersion=${{ steps.ver.outputs.version }}" installer.iss'
+
+      - name: Setup als Artefakt speichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: ValorantAimTrainer-Setup-${{ steps.ver.outputs.version }}
+          path: release/ValorantAimTrainer-Setup-${{ steps.ver.outputs.version }}.exe
+
+      - name: GitHub-Release anlegen
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create $env:GITHUB_REF_NAME
+          "release/ValorantAimTrainer-Setup-${{ steps.ver.outputs.version }}.exe"
+          --title "Version ${{ steps.ver.outputs.version }}" --notes-from-tag
