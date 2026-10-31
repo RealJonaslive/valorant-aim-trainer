@@ -36,8 +36,9 @@ def install() -> bool:
     if sys.platform != "win32":
         return False
     # Entwicklung: neben pygame; gepackte .exe (PyInstaller): je nach Version dort oder im Bundle-Ordner
+    exe_dir = os.path.dirname(os.path.abspath(sys.argv[0]))      # Nuitka: DLLs liegen neben der .exe
     folders = [os.path.dirname(pygame.__file__), getattr(sys, "_MEIPASS", ""),
-               os.path.join(getattr(sys, "_MEIPASS", ""), "pygame")]
+               os.path.join(getattr(sys, "_MEIPASS", ""), "pygame"), exe_dir, os.path.join(exe_dir, "pygame")]
     path = next((os.path.join(d, "SDL2.dll") for d in folders if d and os.path.exists(os.path.join(d, "SDL2.dll"))),
                 None)
     if not path:

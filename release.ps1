@@ -5,7 +5,7 @@
 
   1. Versionsnummer in aimtrainer/version.py setzen
   2. Tests ausführen (bei Fehlern wird abgebrochen)
-  3. .exe bauen (PyInstaller) und Setup bauen (Inno Setup)
+  3. .exe bauen (Nuitka, siehe build_exe.ps1) und Setup bauen (Inno Setup)
   4. Code committen, Tag v<Version> setzen, zu GitHub hochladen
   5. GitHub-Release mit der Setup.exe anlegen
   -> Beim nächsten Start bekommen alle Freunde das Update (Pflicht-Update).
@@ -34,10 +34,8 @@ $vf = "aimtrainer\version.py"
 Write-Host "== Tests ==" -ForegroundColor Cyan
 python tests\test_aimtrainer.py | Out-Null; Check "Tests"
 
-Write-Host "== .exe bauen ==" -ForegroundColor Cyan
-python -m PyInstaller --noconfirm --clean --windowed --name "Valorant Aim Trainer" --icon assets\icon.ico `
-    --add-data "assets\icon.png;assets" --exclude-module tkinter --distpath dist --workpath build main.py | Out-Null
-Check "PyInstaller"
+Write-Host "== .exe bauen (Nuitka) ==" -ForegroundColor Cyan
+& "$PSScriptRoot\build_exe.ps1" $Version
 
 Write-Host "== Setup bauen ==" -ForegroundColor Cyan
 & $iscc /Q "/DAppVersion=$Version" installer.iss; Check "Inno Setup"

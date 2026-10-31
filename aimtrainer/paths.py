@@ -9,8 +9,15 @@ import os
 import sys
 from pathlib import Path
 
-FROZEN = bool(getattr(sys, "frozen", False))
-APP_DIR = Path(sys.executable).parent if FROZEN else Path(__file__).resolve().parent.parent
+# Gepackt als .exe? PyInstaller setzt sys.frozen, Nuitka setzt __compiled__.
+NUITKA = "__compiled__" in globals()
+FROZEN = bool(getattr(sys, "frozen", False)) or NUITKA
+if NUITKA:
+    APP_DIR = Path(sys.argv[0]).resolve().parent
+elif FROZEN:
+    APP_DIR = Path(sys.executable).parent
+else:
+    APP_DIR = Path(__file__).resolve().parent.parent
 RES_DIR = Path(getattr(sys, "_MEIPASS", APP_DIR))          # gebündelte Dateien (assets/)
 DATA_DIR = (Path(os.environ.get("APPDATA", Path.home())) / "ValorantAimTrainer") if FROZEN else APP_DIR
 

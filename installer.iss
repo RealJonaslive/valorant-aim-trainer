@@ -17,7 +17,16 @@ AppId={{5643BE1A-E747-4F42-825E-7095D26118EA}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
-AppPublisher=Jonas
+AppPublisher=RealJonaslive
+AppPublisherURL=https://github.com/RealJonaslive/valorant-aim-trainer
+AppSupportURL=https://github.com/RealJonaslive/valorant-aim-trainer/issues
+; Dateiinformationen der Setup.exe (Rechtsklick -> Eigenschaften -> Details)
+VersionInfoVersion={#AppVersion}
+VersionInfoCompany=RealJonaslive
+VersionInfoDescription={#AppName} Setup
+VersionInfoProductName={#AppName}
+VersionInfoProductVersion={#AppVersion}
+VersionInfoCopyright=(c) RealJonaslive - Fan-Projekt, nicht mit Riot Games verbunden
 DefaultDirName={localappdata}\Programs\{#AppName}
 DisableDirPage=yes
 DisableProgramGroupPage=yes

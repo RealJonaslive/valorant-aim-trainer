@@ -65,7 +65,8 @@ HELP = [
      "exportieren (der Code wird kopiert). Dann hier ins Feld „Valorant-Profilcode“ klicken, Strg+V "
      "drücken und auf „Importieren“ klicken.\n"
      "Umgekehrt geht's auch: „Code kopieren“ und den Code in Valorant als Profil importieren.\n"
-     "Mit „Als Profil speichern“ legst du mehrere Fadenkreuze an und wechselst per Klick zwischen ihnen."),
+     "Mit „Als Profil speichern“ legst du mehrere Fadenkreuze an und wechselst per Klick zwischen ihnen. "
+     "Über den Knopf „Name“ gibst du einem Profil einen eigenen Namen (Enter = speichern, Esc = abbrechen)."),
     ("Pause und Beenden",
      "•  Drück Esc: Das Spiel hält an und ein Pausenmenü erscheint. Dort wählst du "
      "„Weiterspielen“ oder „Beenden und Auswertung ansehen“.\n"
@@ -176,7 +177,8 @@ class App:
         self.env_static = Environment(STATIC_ARENA)
         self.tab = "training"
         self.help_scroll = 0
-        self.form = {"xcode": ""}    # Eingabefeld für Fadenkreuz-Codes
+        self.form = {"xcode": "", "pname": ""}    # Eingabefelder: Fadenkreuz-Code, Profilname
+        self.renaming = None         # Index des Profils, das gerade umbenannt wird
         self.xstatus = ("", ui.GOOD)
         self.profile_scroll = 0
         self.history = None          # gespeicherte Runden (wird beim Öffnen des Tabs geladen)
@@ -240,6 +242,8 @@ class App:
                 if e.type == pygame.KEYDOWN and e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                     if self.st.focus == "xcode":
                         self._import_code()      # Enter im Code-Feld = importieren
+                    elif self.renaming is not None:
+                        self._commit_rename()    # Enter beim Umbenennen = speichern
                     else:
                         self._start()
                     continue
@@ -249,6 +253,7 @@ class App:
                         self.profile_scroll = max(0, self.profile_scroll - e.y)
                     continue
                 if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                    self._cancel_rename()
                     self.st.focus = None
                     continue
                 if e.type == pygame.MOUSEWHEEL and self.tab == "result":
@@ -370,10 +375,37 @@ class App:
         self.profile_scroll = max(0, min(self.profile_scroll, max(0, len(order) - rows)))
         for row, i in enumerate(order[self.profile_scroll:self.profile_scroll + rows]):
             y = pc.y + 214 + row * 46
-            out.append(ui.Button((px, y, pw - 52, 40), profiles[i]["name"], lambda i=i: self._select_profile(i),
+            if self.renaming == i:   # Zeile wird zum Eingabefeld
+                out.append(ui.TextField((px, y, pw - 132, 40), "", self.form, "pname", text=True, max_len=30,
+                                        placeholder="Name eingeben"))
+                out.append(ui.Button((px + pw - 124, y, 72, 40), "OK", self._commit_rename, selected=True))
+                out.append(ui.Button((px + pw - 44, y, 44, 40), "×", self._cancel_rename, font="big"))
+                continue
+            out.append(ui.Button((px, y, pw - 132, 40), profiles[i]["name"], lambda i=i: self._select_profile(i),
                                  selected=self.cfg.get("crosshair_active") == i, font="normal"))
+            out.append(ui.Button((px + pw - 124, y, 72, 40), "Name", lambda i=i: self._start_rename(i)))
             out.append(ui.Button((px + pw - 44, y, 44, 40), "×", lambda i=i: self._delete_profile(i), font="big"))
         return out
+
+    # Profil umbenennen
+    def _start_rename(self, i):
+        self.renaming = i
+        self.form["pname"] = self.cfg["crosshair_profiles"][i]["name"]
+        self.st.focus = "pname"
+
+    def _commit_rename(self):
+        i, name = self.renaming, self.form["pname"].strip()
+        if i is not None and name:
+            old = self.cfg["crosshair_profiles"][i]["name"]
+            self.cfg["crosshair_profiles"][i]["name"] = name
+            if name != old:
+                self._status(f"„{old}“ heißt jetzt „{name}“.")
+        self._cancel_rename()
+
+    def _cancel_rename(self):
+        self.renaming = None
+        if self.st.focus == "pname":
+            self.st.focus = None
 
     # ------------------------------------------------------- Fadenkreuz-Profile
     def _profile_card(self, x0, cw, h):
@@ -399,9 +431,9 @@ class App:
         profiles.append({"name": f"Importiert {len(profiles) + 1}", "code": crosshair.to_code(cfg)})
         self.cfg["crosshair_active"] = len(profiles) - 1
         self.form["xcode"] = ""
-        self.st.focus = None
         self.profile_scroll = 0
-        self._status("Profil importiert und aktiviert.")
+        self._status("Profil importiert und aktiviert – gib ihm einen Namen und drücke Enter.")
+        self._start_rename(len(profiles) - 1)
 
     def _copy_code(self):
         code = crosshair.to_code(self.cfg["crosshair"])
@@ -417,7 +449,8 @@ class App:
                          "code": crosshair.to_code(self.cfg["crosshair"])})
         self.cfg["crosshair_active"] = len(profiles) - 1
         self.profile_scroll = 0
-        self._status("Aktuelles Fadenkreuz als Profil gespeichert.")
+        self._status("Gespeichert – gib dem Profil einen Namen und drücke Enter.")
+        self._start_rename(len(profiles) - 1)
 
     def _select_profile(self, i):
         p = self.cfg["crosshair_profiles"][i]
@@ -429,6 +462,7 @@ class App:
             self._status(f"Profil defekt: {e}", False)
 
     def _delete_profile(self, i):
+        self._cancel_rename()
         profiles = self.cfg["crosshair_profiles"]
         name = profiles.pop(i)["name"]
         active = self.cfg.get("crosshair_active")
@@ -1055,5 +1089,42 @@ class App:
             pygame.quit()
 
 
+def selftest():
+    """Versteckter Test für die gepackte .exe:  "Valorant Aim Trainer.exe" --selftest
+    Prüft die Teile, die beim Packen kaputtgehen können, und schreibt das Ergebnis nach
+    %APPDATA%\\ValorantAimTrainer\\selftest.txt (Entwicklung: Projektordner)."""
+    import numpy as np
+    from . import analysis
+    lines, ok = [f"Version {__version__}, gepackt: {FROZEN}"], True
+
+    def check(name, cond):
+        nonlocal ok
+        ok &= bool(cond)
+        lines.append(f"{'OK ' if cond else 'FEHLER'}  {name}")
+
+    app = App()
+    check("Raw Input (Maus direkt, ohne Beschleunigung)", app.raw_ok)
+    check("Live-Neuzeichnen beim Fenster-Ziehen", livedraw._state["cb"] is not None)
+    check("Icon gefunden", ICON.exists())
+    t = np.arange(0, 6, 0.004)
+    ty = 8 * np.sin(t * 2)
+    samples = [[float(a), float(e), 0.0, float(b), 1] for a, b, e in zip(t, ty, 0.3 * np.sin(t * 2 + 0.3))]
+    check("Analyse (numpy)", analysis.analyze_tracking(samples) is not None)
+    for name, M in MODES.items():
+        cam = Camera(0.35)
+        m = M(cam)
+        for i in range(30):
+            m.update(1 + i * 0.01, 0.01)
+        app.r.draw_world(cam, m.targets, m.dead, 1.3, getattr(m, "covers", ()), app.env_static)
+        check(f"Modus {name} zeichnen", True)
+    check("Fadenkreuz-Code", crosshair.to_code(crosshair.parse_code("0;P;c;5;h;0;0l;4")) == "0;P;c;5;h;0;0l;4")
+    app.raw.stop()
+    pygame.quit()
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    (DATA_DIR / "selftest.txt").write_text("\n".join(lines + ["GESAMT: " + ("OK" if ok else "FEHLER")]), "utf-8")
+
+
 def main():
+    if "--selftest" in sys.argv:
+        return selftest()
     App(fullscreen="--fullscreen" in sys.argv).run()
